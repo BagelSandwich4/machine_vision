@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'my_package'
+package_name = 'logger'
 
 setup(
     name=package_name,
@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'my_node = my_package.my_node:main'
+            'my_node = logger.my_node:main',
+            'tag_logger = logger.tag_logger:main',
         ],
     },
 )
