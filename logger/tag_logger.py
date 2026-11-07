@@ -2,10 +2,13 @@
 Run:  python3 scan_node.py"""
 import csv
 import math
+import os
 import time
 
 import cv2
+import numpy as np
 import rclpy
+import yaml
 from cv_bridge import CvBridge
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
@@ -16,6 +19,8 @@ from sensor_msgs.msg import Image
 IMAGE_TOPIC = "/camera/image_raw"
 ODOM_TOPIC = "/odom"
 CMD_TOPIC = "/cmd_vel"
+CALIB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calibration_data.yaml")
+TAG_SIZE = 0.10      # meters: side length of the black square of tags
 NUM_STOPS = 5        # how many places to stop and scan
 STEP_DIST = 0.30     # meters to drive between stops
 SPEED = 0.08         # m/s
@@ -28,18 +33,27 @@ class Scanner(Node):
         super().__init__("scanner")
         self.bridge = CvBridge()
         self.detector = Detector(families="tag36h11")
+
+        # load camera calibration from the yaml file
+        with open(CALIB_FILE) as f:
+            calib = yaml.safe_load(f)
+        self.K = np.array(calib["camera_matrix"]["data"]).reshape(3, 3)   # intrinsics matrix
+        self.D = np.array(calib["distortion_coefficients"]["data"])       # lens distortion
+        # pupil_apriltags needs -> (fx, fy, cx, cy)
+        self.cam_params = (self.K[0, 0], self.K[1, 1], self.K[0, 2], self.K[1, 2])
+
         self.create_subscription(Image, IMAGE_TOPIC, self.on_image, 1)
         self.create_subscription(Odometry, ODOM_TOPIC, self.on_odom, 10)
         self.pub = self.create_publisher(Twist, CMD_TOPIC, 10)
         self.create_timer(0.1, self.loop)
 
         self.x = self.y = None      # robot position from odometry
-        self.state = "scan_wait"    
+        self.state = "scan_wait"
         self.stop = 0               # which stop we are at
         self.start_xy = None        # where the current drive began
         self.wait_start = time.time()
         self.frames = 0
-        self.seen = set()           # tag IDs seen at this stop
+        self.seen = {}              # tag_id -> position of tag in camera frame at this stop
         self.log = {}               # tag_id -> row
 
     def on_odom(self, msg):
@@ -50,17 +64,20 @@ class Scanner(Node):
         if self.state != "scan":
             return
         gray = cv2.cvtColor(self.bridge.imgmsg_to_cv2(msg, "bgr8"), cv2.COLOR_BGR2GRAY) #makes the image grayscale and converts to opencv image
-        for tag in self.detector.detect(gray):            # adds the tag id to the set of seen tags at this stop
-            self.seen.add(tag.tag_id)
+        gray = cv2.undistort(gray, self.K, self.D)  # removes lens distortion using the calibration
+        # detect tags and estimate their 3D pose relative to the camera
+        for tag in self.detector.detect(gray, estimate_tag_pose=True,
+                                        camera_params=self.cam_params, tag_size=TAG_SIZE):
+            self.seen[tag.tag_id] = tag.pose_t.flatten()  # [x, y, z] in meters, z is forward
         self.frames += 1
 
     #simple function to move the robot at a given speed
-    def move(self, speed): 
+    def move(self, speed):
         cmd = Twist()
         cmd.linear.x = speed
         self.pub.publish(cmd)
 
-    #main state machine 
+    #main state machine
     def loop(self):
         if self.x is None:
             return  # no odometry yet
@@ -76,13 +93,13 @@ class Scanner(Node):
 
         elif self.state == "scan_wait": #stop and wait WAIT_TIME seconds, then switch to SCAN state
             self.move(0.0)
-            if time.time() - self.wait_start >= WAIT_TIME: 
+            if time.time() - self.wait_start >= WAIT_TIME:
                 self.frames = 0
-                self.seen = set()
+                self.seen = {}
                 self.state = "scan"
 
         elif self.state == "scan": #wait until it gets SCAN_FRAMES frames, then saves the tag and either finishes the run or moves to the next stop
-            if self.frames >= SCAN_FRAMES: 
+            if self.frames >= SCAN_FRAMES:
                 self.save_stop()
                 self.stop += 1
                 if self.stop >= NUM_STOPS:
@@ -92,18 +109,22 @@ class Scanner(Node):
                     self.state = "drive"
 
     def save_stop(self):
-        for tag_id in self.seen:
+        for tag_id, t in self.seen.items():
             if tag_id not in self.log:  # ignore duplicates
-                #adds tag id to the log with its ID, stop number, time, and x/y coordinates
+                #adds tag id to the log with its ID, stop number, time, x/y coordinates, and camera-frame position
                 self.log[tag_id] = {"tag_id": tag_id, "stop": self.stop,
                                     "time": time.strftime("%H:%M:%S"),
-                                    "x": round(self.x, 2), "y": round(self.y, 2)}
-                self.get_logger().info(f"stop {self.stop}: found tag {tag_id}")
+                                    "x": round(self.x, 2), "y": round(self.y, 2),
+                                    "cam_x": round(float(t[0]), 3),
+                                    "cam_y": round(float(t[1]), 3),
+                                    "cam_z": round(float(t[2]), 3)}
+                self.get_logger().info(f"stop {self.stop}: found tag {tag_id} at {t[2]:.2f} m")
 
     def finish(self):
         name = time.strftime("run_%Y%m%d_%H%M%S.csv") #makes a time-stamped filename for the log
         with open(name, "w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["tag_id", "stop", "time", "x", "y"])
+            writer = csv.DictWriter(f, fieldnames=["tag_id", "stop", "time", "x", "y",
+                                                   "cam_x", "cam_y", "cam_z"])
             writer.writeheader()
             writer.writerows(self.log.values())
         self.get_logger().info(f"saved {name}")
