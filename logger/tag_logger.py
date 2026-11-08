@@ -20,7 +20,7 @@ IMAGE_TOPIC = "/camera/image_raw"
 ODOM_TOPIC = "/odom"
 CMD_TOPIC = "/cmd_vel"
 CALIB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calibration_data.yaml")
-TAG_SIZE = 0.10      # meters: side length of the black square of tags
+TAG_SIZE = 0.107      # meters: side length of the black square of tags
 NUM_STOPS = 5        # how many places to stop and scan
 STEP_DIST = 0.30     # meters to drive between stops
 SPEED = 0.08         # m/s
@@ -32,7 +32,7 @@ class Scanner(Node):
     def __init__(self):
         super().__init__("scanner")
         self.bridge = CvBridge()
-        self.detector = Detector(families="tag36h11")
+        self.detector = Detector(families="tag25h9")
 
         # load camera calibration from the yaml file
         with open(CALIB_FILE) as f:
@@ -71,11 +71,13 @@ class Scanner(Node):
             self.seen[tag.tag_id] = tag.pose_t.flatten()  # [x, y, z] in meters, z is forward
         self.frames += 1
 
+
     #simple function to move the robot at a given speed
-    def move(self, speed):
+    def move(self, speed=0.1):
         cmd = Twist()
         cmd.linear.x = speed
         self.pub.publish(cmd)
+
 
     #main state machine
     def loop(self):
