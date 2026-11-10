@@ -1,4 +1,4 @@
-"""Compare two runs. Run:  python3 compare.py run_A.csv run_B.csv"""
+"""Compare two runs, must be in same folder. Run:  python3 compare_runs.py run_A.csv run_B.csv"""
 import csv
 import sys
 

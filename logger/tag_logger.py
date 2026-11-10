@@ -22,9 +22,10 @@ ODOM_TOPIC = "/odom"
 CMD_TOPIC = "/cmd_vel"
 SCAN_TOPIC = "/scan"
 CALIB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calibration_data.yaml")
-TAG_SIZE = 0.107      # meters: side length of the black square of tags
+TAG_SIZE = 0.107      # meters: side length of the black square of tags 
 NUM_STOPS = 5         # how many places to stop and scan
 STEP_DIST = 0.30      # meters to drive between stops
+MAX_DIST = NUM_STOPS*STEP_DIST # maximum distance for this system
 SPEED = 0.08          # m/s
 WAIT_TIME = 1.0       # seconds to sit still before scanning
 SCAN_FRAMES = 8       # frames to look at per stop
@@ -57,6 +58,8 @@ class Scanner(Node):
         self.state = "scan_wait"
         self.stop = 0               # which stop we are at
         self.start_xy = None        # where the current drive began
+        self.run_start_xy = None    # where the whole run began (set on first odom message)
+        self.cap_reached = False    # True once total distance >= MAX_DIST
         self.wait_start = time.time()
         self.frames = 0
         self.seen = {}              # tag_id -> position of tag in camera frame at this stop
@@ -65,6 +68,8 @@ class Scanner(Node):
     def on_odom(self, msg):
         self.x = msg.pose.pose.position.x
         self.y = msg.pose.pose.position.y
+        if self.run_start_xy is None:
+            self.run_start_xy = (self.x, self.y)
 
     def on_scan(self, msg):
         ranges = np.array(msg.ranges)
@@ -102,9 +107,16 @@ class Scanner(Node):
 
         if self.state == "drive":
             driven = math.hypot(self.x - self.start_xy[0], self.y - self.start_xy[1]) #euclidean distance between where this drive began vs where the robot is now
+            total = math.hypot(self.x - self.run_start_xy[0], self.y - self.run_start_xy[1]) #distance from where the whole run began
             if self.blocked():  # obstacle ahead: stop early and scan from here
                 self.get_logger().warn(f"obstacle at {self.front_dist:.2f} m, stopping early")
                 self.move(0.0)
+                self.state = "scan_wait"
+                self.wait_start = time.time()
+            elif total >= MAX_DIST: # driven the maximum total distance: stop, scan here one last time, then finish
+                self.get_logger().warn(f"reached max distance ({total:.2f} m), scanning one last time")
+                self.move(0.0)
+                self.cap_reached = True
                 self.state = "scan_wait"
                 self.wait_start = time.time()
             elif driven >= STEP_DIST: # if this dist is greater than the step, stop and wait before scanning
@@ -126,9 +138,9 @@ class Scanner(Node):
             if self.frames >= SCAN_FRAMES:
                 self.save_stop()
                 self.stop += 1
-                if self.stop >= NUM_STOPS:
-                    self.finish()
+                if self.stop >= NUM_STOPS or self.cap_reached:
                     self.get_logger().info("finished run")
+                    self.finish()
                 elif self.blocked():  # can't drive further, so end the run
                     self.get_logger().warn("path blocked, ending run early")
                     self.finish()
@@ -136,6 +148,10 @@ class Scanner(Node):
                     self.start_xy = (self.x, self.y)
                     self.state = "drive"
                     self.get_logger().info(f"driving to stop {self.stop}")
+        elif self.state == "done":
+            self.finish()
+            return 
+
 
     def save_stop(self):
         for tag_id, t in self.seen.items():
