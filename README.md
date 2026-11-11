@@ -20,7 +20,7 @@ The final system drives a Neato along a fixed route past a row of tagged shelves
 
 - **Team:** Our learning goals as a team were to advance our knowledge of computer vision and apply it to other robotics areas.
 - **Ophelia:** For this project, I wanted to use AprilTags to learn how to use computer vision while eliminating some of the more finicky aspects of it.
-- **Detch** : For this project, I wanted to test out using computer vision to track items, potentially using it to track batteries and logging inventory (lead-acid car batteries) for my family business backhome in Thailand.
+- **Detch** : For this project, I wanted to test out using computer vision to track inventory, potentially using it to track batteries and logging inventory (lead-acid car batteries) for my family business backhome in Thailand in the future.
  
 ## 2. How It Works
 
@@ -86,26 +86,100 @@ The accuracy of our pose estimation turned out pretty good. As seen below we mea
 ![log](images/log.png)
 ![detection](images/detected.png)
 
+## 6. Debugging and Testing
 
-## 6. Future Improvements
+<img src="images/testing_site.png" width="400" height="400">
 
-With more time, we would focus on making the robot more autonomous, more accurate, and more useful to the person reading its output. One example of what what we would add is Tag based navigation. Right now, the robot follows a fixed route. A more advanced version could use the tags to determine where both the tag and the robot are, add obstacle avoidance, and navigate on its own to specific tags. We would also add better duplicate handling. Our current solution that only uses the first detection works, but there are better solutions. We could continuously save each reading and average the results, which would give a more accurate pose estimate because multiple readings make up for noise. Our code already collects 8 frames per stop, so this would be a small change. We could also improve outr change detection. We log each tag's position relative to the camera but do not yet use it for comparison. A better version would convert each tag to a fixed warehouse coordinate and flag a tag as moved only when it shifts by more than a distance threshold.
+The physical setup for the Neato included creating a testing area with April tags on the wall. Since, our program primarily works by stopping at stops and reading them, there is a large margin to place april tags in on the horizontal axis as long as they are spaced apart by a distance larger than each stop, it will work as intended. 
 
-## 7. Lessons Learned
+For our testing, we had the Neato start from x = 1.5 meters and move to x = 3 meters, ensuring all are April tags are within this range. We tested for a case where there was 3 april tags (ID = 0, 1, 3) and another case when ID 3 was taken away and only 2 tags were left. We verified it with `compare_runs.py` and the results were as expected.
+
+Additionally, throughout the entire process we wrote several small scripts to test each part of the system on its own before running the full patrol. All of these scripts are in the `logger/` folder.
+
+| File | Purpose |
+|---|---|
+| `my_node.py` | Checks that the ROS 2 node starts and connects to the Neato. |
+| `april_cameratest.py` | Runs tag detection on the laptop webcam, to test the detector without the robot. |
+| `apriltag_test_raspi_cam.py` | Runs tag detection on the Neato's Raspberry Pi camera stream. |
+| `compare_runs.py` | Compares two run logs and reports which tags are new, missing, or moved. |
+
+We also included data from previous runs. Each patrol's log is saved as a CSV, and we recorded a rosbag of the Neato's movement during one run. Because we did not compress the bag, the file is very large, so we have provided only a single run and we had to provide a link to download it seperately. See the final section for more details.
+
+To verify `logger/compare_runs.py`, we included two runs, `logger/run_1.csv` and `logger/run_2.csv`, recorded with one tag removed between them. The tag count drops from three to two. To reproduce the comparison, run:
+
+```bash
+cd logger
+python3 compare_runs.py run_1.csv run_2.csv
+```
+
+The script should report the removed tag as **MISSING: 3 (was at stop 1)**, which reads as "Tag 3 is missing; it was last seen at stop 1."
+
+
+## 7. Future Improvements
+
+With more time, we would focus on making the robot more autonomous, more accurate, and more useful to the person reading its output. One example of what what we would add is Tag based navigation. Right now, the robot follows a fixed route. A more advanced version could use the tags to determine where both the tag and the robot are, add obstacle avoidance, and navigate on its own to specific tags. We would also add better duplicate handling. Our current solution that only uses the first detection works, but there are better solutions. We could continuously save each reading and average the results, which would give a more accurate pose estimate because multiple readings make up for noise. Our code already collects 8 frames per stop, so this would be a small change. We could also improve our change detection. We log each tag's position relative to the camera but do not yet use it for comparison. A better version would convert each tag to a fixed warehouse coordinate and flag a tag as moved only when it shifts by more than a distance threshold. This would also allow for the possibility of having multiple rows of tags in order to have a higher density of scanable inventory.
+
+## 8. Lessons Learned
 
 One lesson we learned from this project is that AprilTags are very useful for many different applications. The ability to read a tag ID and get an accurate position of the tag is useful not just for warehouse logging, but also for things like navigating where GPS cannot reach, or navigating underwater.
 
 We also learned how important camera calibration is when dealing with computer vision. If we had not calibrated our camera before testing, we would have had wildly inaccurate results.
 
-## 8. Relation to Real-World Robotics Systems
+## 9. Relation to Real-World Robotics Systems
 
 Our project is a miniature version of a system that companies already build and sell. This is a mobile robot that patrols a space, perceives what is there, and communicated what it sees. Companies such as Simbe Robotics build robots for retail stores that scan shelves to track stock, and similar products exist for warehouses, including drones that fly through aisles reading labels on pallets. Our robot follows the same basic loop as many of these. It perceives items with cameras, finds where each item is, records it, and compares against earlier scans to find what is missing or out of place. Our change detection step is a simplified version of these algorithms.
 
 Fiducial markers are also common in industry. AprilTags and similar markers are widely used in robotics because they make perception reliable and cheap. Warehouse robot fleets, most famously Amazon's drive units, have used printed codes on the floor to help robots know where they are.
 
-## 9. How to Use
+## 10. How to Use
 
-**Requirements:** ROS 2, `pupil-apriltags`, `opencv-python`, `cv_bridge`, `numpy`, `pyyaml`
+**Requirements:** Python 3.12, `pupil-apriltags`, `opencv-python`, `cv_bridge`, `numpy`, `pyyaml`
+
+### Setting Up the Virtual Environment
+
+ROS 2 provides `rclpy`, `cv_bridge`, `numpy`, and `pyyaml`, but `pupil-apriltags` is not available through rosdep. We install it, along with a version of OpenCV, in a Python virtual environment (`.venv`) so the project does not change the system Python installation.
+
+1. Clone the repository into the `src` folder of a ROS 2 workspace:
+
+   ```bash
+   cd ~/ros2_ws/src
+   git clone https://github.com/BagelSandwich4/machine_vision.git
+   cd machine_vision
+   ```
+
+2. Create the virtual environment and install the dependencies:
+
+   ```bash
+   python3 -m venv --system-site-packages .venv
+   touch .venv/COLCON_IGNORE
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+   - `--system-site-packages` lets the environment see the ROS 2 Python packages (`rclpy`, `cv_bridge`, and so on), which are installed system-wide.
+   - `COLCON_IGNORE` stops colcon from scanning the environment folder when it builds the workspace.
+
+3. Build the package with the environment active:
+
+   ```bash
+   cd ~/ros2_ws
+   source /opt/ros/jazzy/setup.bash
+   source src/machine_vision/.venv/bin/activate
+   python -m colcon build --packages-select logger
+   source install/setup.bash
+   ```
+
+   Running colcon with `python -m` builds the package with the environment's interpreter. The package's `setup.cfg` sets the node entry points to `#!/usr/bin/env python3`, so `ros2 run` uses whichever Python is active.
+
+4. In every new terminal, activate the environment again before running the nodes:
+
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   source ~/ros2_ws/src/machine_vision/.venv/bin/activate
+   source ~/ros2_ws/install/setup.bash
+   ```
+
+### Running the Robot
 
 **Run a patrol:**
 
@@ -120,3 +194,50 @@ The log is saved as `run_YYYYMMDD_HHMMSS.csv` in the directory where you launche
 ```bash
 python3 compare_runs.py run_A.csv run_B.csv
 ```
+
+Two example runs, `run_1.csv` and `run_2.csv`, are included in `logger/` so you can see the expected output without running the robot.
+
+### Replaying the Rosbag
+
+We recorded one full patrol as a rosbag, so you can review the run in RViz without a Neato. The bag is about 1.4 GB, which is too large for GitHub, so it is hosted on Google Drive instead. The link is also saved in [bags/download_link.md](bags/download_link.md).
+
+1. **Download** `bags.zip` from [Google Drive](https://drive.google.com/file/d/1d9ihpJmmx1qY-Q4c8_a9A0P12Vg_5gYr/view?usp=sharing). Google Drive cannot virus-scan files this large, so it may show a warning first; select **Download anyway**.
+
+2. **Unzip** it and then move the /rosbag2_2026_11_11-00_22_44/ into the /bags/ directory. 
+
+   The folder should then look like this:
+
+   ```
+   bags/
+   ├── download_link.md
+   └── rosbag2_2026_11_11-00_22_44/
+       ├── metadata.yaml
+       └── rosbag2_2026_11_11-00_22_44_0.mcap
+   ```
+
+3. **Play** the bag:
+
+   ```bash
+   ros2 bag play bags/rosbag2_2026_11_11-00_22_44
+   ```
+
+   To check the contents first, run `ros2 bag info bags/rosbag2_2026_11_11-00_22_44`. The bag contains `/camera/image_raw`, `/camera/camera_info`, `/odom`, `/scan`, `/cmd_vel`, `/tf`, `/tf_static`, `/bump`, and `/rosout`. The `/bump` topic uses the `neato2_interfaces` message type and replays only if the Neato packages are installed; it is not needed by `tag_logger`.
+
+4. **View** the run in a second terminal with `rviz2` (add the `/scan` and `/camera/image_raw/image` with `odom` as the fixed frame).
+
+Terminal #1:
+```
+source /opt/ros/jazzy/setup.bash
+cd ~/ros2_ws/src/MachineVision/machine_vision
+ros2 bag play bags/rosbag2_2026_11_11-00_22_44 --clock --loop
+```
+
+Terminal #2:
+```
+source /opt/ros/jazzy/setup.bash
+rviz2 --ros-args -p use_sim_time:=true
+```
+
+If it is successful it should look something like this image
+
+![rviz2](images/rviz_working.png)

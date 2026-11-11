@@ -27,7 +27,7 @@ setup(
         'console_scripts': [
             'my_node = logger.my_node:main',
             'tag_logger = logger.tag_logger:main',
-            'apriltag_test_raspi_cam = logger.apriltag_test_raspi_cam:main',
+            'april_raspicamtest = logger.april_raspicamtest:main',
         ],
     },
 )
