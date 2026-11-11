@@ -215,15 +215,7 @@ We recorded one full patrol as a rosbag, so you can review the run in RViz witho
        └── rosbag2_2026_11_11-00_22_44_0.mcap
    ```
 
-3. **Play** the bag:
-
-   ```bash
-   ros2 bag play bags/rosbag2_2026_11_11-00_22_44
-   ```
-
-   To check the contents first, run `ros2 bag info bags/rosbag2_2026_11_11-00_22_44`. The bag contains `/camera/image_raw`, `/camera/camera_info`, `/odom`, `/scan`, `/cmd_vel`, `/tf`, `/tf_static`, `/bump`, and `/rosout`. The `/bump` topic uses the `neato2_interfaces` message type and replays only if the Neato packages are installed; it is not needed by `tag_logger`.
-
-4. **View** the run in a second terminal with `rviz2` (add the `/scan` and `/camera/image_raw/image` with `odom` as the fixed frame).
+3. Run the file by opening two terminals and using the following series of commands:
 
 Terminal #1:
 ```
