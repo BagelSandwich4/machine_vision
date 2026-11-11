@@ -5,7 +5,8 @@ package_name = 'logger'
 setup(
     name=package_name,
     version='0.0.0',
-    packages=find_packages(exclude=['test']),
+    packages=find_packages(exclude=['test', '*.test']),
+    package_data={package_name: ['calibration_data.yaml']},
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -13,10 +14,10 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='ophelia-lonzo',
-    maintainer_email='ophelialonzo@gmail.com',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    maintainer='ophelia-lonzo, thanadetch-mateedunsatits',
+    maintainer_email='ophelialonzo@gmail.com, thanadetch.m@gmail.com',
+    description='Use Neatos and AprilTags to log items',
+    license='MIT',
     extras_require={
         'test': [
             'pytest',
@@ -26,6 +27,7 @@ setup(
         'console_scripts': [
             'my_node = logger.my_node:main',
             'tag_logger = logger.tag_logger:main',
+            'apriltag_test_raspi_cam = logger.apriltag_test_raspi_cam:main',
         ],
     },
 )

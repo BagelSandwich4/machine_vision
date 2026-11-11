@@ -1,3 +1,6 @@
+"""Test that the node is running."""
+
+
 def main():
     print('Hi from my_package.')
 

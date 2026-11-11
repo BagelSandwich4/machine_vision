@@ -3,16 +3,21 @@
 <package format="3">
   <name>logger</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="ophelialonzo@gmail.com">ophelia-lonzo</maintainer>
-  <license>TODO: License declaration</license>
+  <description>Use Neatos and AprilTags to log items</description>
+  <maintainer email="ophelialonzo@gmail.com">Ophelia Lonzo</maintainer>
+  <maintainer email="thanadetch.m@gmail.com">Thanadetch Mateedunsatits</maintainer>
+  <license>MIT</license>
 
   <depend>rclpy</depend>
-  <depend>std_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>cv_bridge</depend>
+
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <!-- pupil_apriltags has no rosdep; but please install with `pip install pupil-apriltags` -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

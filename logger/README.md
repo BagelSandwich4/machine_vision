@@ -20,8 +20,8 @@ The final system drives a Neato along a fixed route past a row of tagged shelves
 
 - **Team:** Our learning goals as a team were to advance our knowledge of computer vision and apply it to other robotics areas.
 - **Ophelia:** For this project, I wanted to use AprilTags to learn how to use computer vision while eliminating some of the more finicky aspects of it.
-- **Detch** : 
-
+- **Detch** : For this project, I wanted to test out using computer vision to track items, potentially using it to track batteries and logging inventory (lead-acid car batteries) for my family business backhome in Thailand.
+ 
 ## 2. How It Works
 
 Our system turns a camera image into a log of what is on the shelves. The pipeline has six steps: **Camera → Camera Calibration → Tag Detection and Pose Estimation → State Machine → Logging → Change Detection.**
